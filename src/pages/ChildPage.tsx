@@ -133,6 +133,7 @@ function ChildPage({ onToggleToParent }: ChildPageProps) {
   const { onFocus, onBlur } = useKeepParentScrollPosition(isEmbedded)
   const {
     scrollContainerRef,
+    footerRef,
     shouldConstrain,
     onPointerDown,
     onBlur: onKeyboardBlur,
@@ -181,7 +182,7 @@ function ChildPage({ onToggleToParent }: ChildPageProps) {
         )}
       </Content>
 
-      <Footer>
+      <Footer ref={footerRef}>
         <input
           placeholder="메시지를 입력하세요"
           onPointerDown={onPointerDown}

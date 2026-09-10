@@ -7,6 +7,10 @@ import {
 } from 'react'
 import { useKeyboardStore } from '../store/keyboardStore'
 
+// 키보드가 다 내려간 뒤에 Footer를 다시 그려야 아래 WebKit 버그가 풀린다.
+// 실험으로 찾은 값 — 이보다 짧으면 토글해도 input이 여전히 안 눌린다.
+const REPAINT_FOOTER_DELAY_MS = 600
+
 // embed 모드가 아닐 때만 동작한다.
 //
 // 1) onPointerDown에서 기본 동작을 막고 직접 포커스를 주면, 브라우저가 focus 시
@@ -23,6 +27,7 @@ export function useKeyboardSafeViewport(isEmbedded: boolean) {
   const isKeyboardOpen = useKeyboardStore((state) => state.isKeyboardOpen)
   const [isFocused, setIsFocused] = useState(false)
   const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const footerRef = useRef<HTMLDivElement>(null)
 
   // 키보드가 올라오기 직전(= onPointerDown 시점)의 스크롤 위치와 뷰포트 높이.
   const scrollYRef = useRef(0)
@@ -52,7 +57,9 @@ export function useKeyboardSafeViewport(isEmbedded: boolean) {
     const scrollContainer = scrollContainerRef.current
     if (!scrollContainer) return
 
+    const footer = footerRef.current
     const viewportHeight = window.visualViewport?.height ?? window.innerHeight
+
     scrollContainer.scrollTop =
       scrollYRef.current + innerHeightRef.current - viewportHeight
 
@@ -60,6 +67,20 @@ export function useKeyboardSafeViewport(isEmbedded: boolean) {
       // cleanup도 선언 순서대로 돌기 때문에, 위 effect가 html height를 먼저
       // 되돌려서 문서가 다시 스크롤 가능해진 뒤에 실행된다.
       window.scrollTo(0, scrollYRef.current)
+
+      // WebKit 버그: 이 스크롤 복구 직후에는 Footer의 input이 화면에 멀쩡히
+      // 보여도 터치해도 포커스가 잡히지 않는다. visibility를 껐다 켜서 강제로
+      // 다시 그리면 풀린다.
+      setTimeout(() => {
+        if (!footer) return
+
+        footer.style.visibility = 'hidden'
+        // 복구를 다음 프레임으로 미뤄야 한다. 같은 태스크에서 껐다 켜면 두
+        // 대입이 상쇄되어 브라우저가 실제로는 아무것도 다시 그리지 않는다.
+        requestAnimationFrame(() => {
+          footer.style.visibility = ''
+        })
+      }, REPAINT_FOOTER_DELAY_MS)
     }
   }, [shouldConstrain])
 
@@ -79,5 +100,5 @@ export function useKeyboardSafeViewport(isEmbedded: boolean) {
 
   const onBlur = useCallback(() => setIsFocused(false), [])
 
-  return { scrollContainerRef, shouldConstrain, onPointerDown, onBlur }
+  return { scrollContainerRef, footerRef, shouldConstrain, onPointerDown, onBlur }
 }
