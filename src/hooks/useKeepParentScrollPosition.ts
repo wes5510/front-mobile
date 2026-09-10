@@ -7,17 +7,19 @@ import { useAddressBarInnerHeightStore } from '../store/addressBarInnerHeightSto
 // 한 프레임으로는 끝나지 않아서, 일정 시간 동안 매 프레임 다시 맞춰준다.
 const RESTORE_DURATION_MS = 300
 
-// 주소창 활성화/비활성화 상태의 innerHeight로 확인된 값들과 일치하지 않으면
-// 아이폰 Safari가 순간적으로 잘못 보고한 값으로 보고 신뢰하지 않는다.
-function getReliableInnerHeight(): number | null {
-  const currentInnerHeight = window.parent.innerHeight
+// window.parent.innerHeight는 아이폰 Safari에서 순간적으로 잘못된 값을 찍을 수
+// 있으므로, 주소창 활성화/비활성화 상태로 확인된 값들 중 가장 가까운 값으로
+// 보정한다 (후보가 1개뿐이면 그 값).
+function getClosestKnownInnerHeight(target: number): number {
   const knownInnerHeights = useAddressBarInnerHeightStore.getState().innerHeights
 
-  if (!knownInnerHeights.includes(currentInnerHeight)) {
-    return null
+  if (knownInnerHeights.length === 0) {
+    return target
   }
 
-  return currentInnerHeight
+  return knownInnerHeights.reduce((closest, candidate) =>
+    Math.abs(candidate - target) < Math.abs(closest - target) ? candidate : closest,
+  )
 }
 
 function holdScrollY(getTargetScrollY: () => number | null) {
@@ -47,10 +49,11 @@ export function useKeepParentScrollPosition() {
       setScrollY(scrollY)
 
       if (shouldHoldScroll) {
-        holdScrollY(() => {
-          const innerHeight = getReliableInnerHeight()
-          if (innerHeight === null) return null
+        // innerHeight는 onFocus가 호출된 시점에 한 번만 구해서 그 값을 계속
+        // 쓴다 (매 프레임 다시 계산하지 않음).
+        const innerHeight = getClosestKnownInnerHeight(window.parent.innerHeight)
 
+        holdScrollY(() => {
           const viewportHeight = window.parent.visualViewport?.height ?? innerHeight
           const offset = innerHeight - viewportHeight
 
