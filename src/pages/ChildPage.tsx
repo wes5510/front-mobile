@@ -5,7 +5,7 @@ import { colors } from '../colors'
 import { ChildPageGlobalStyle, ChildPageIframeGlobalStyle } from '../globalStyles'
 import { useKeepParentScrollPosition } from '../hooks/useKeepParentScrollPosition'
 import { useIsKeyboardOpen } from '../hooks/useIsKeyboardOpen'
-import { useCollectAddressBarInnerHeights } from '../hooks/useCollectAddressBarInnerHeights'
+import { useKeyboardSafeViewport } from '../hooks/useKeyboardSafeViewport'
 
 function isRunningInIframe(): boolean {
   try {
@@ -34,13 +34,15 @@ const SHORT_ITEMS: ChatItem[] = [
 const HEADER_HEIGHT = 56
 const FOOTER_HEIGHT = 56
 
-const Root = styled.div`
-  min-height: 100vh;
+const Root = styled.div<{ $constrained: boolean }>`
+  height: 100%;
   background: ${colors.bg};
+  // html height가 줄어든 동안에는 문서 대신 Root가 스크롤을 담당한다.
+  overflow-y: ${({ $constrained }) => ($constrained ? 'auto' : 'visible')};
 `
 
 const Header = styled.div`
-  position: fixed;
+  position: sticky;
   top: 0;
   left: 0;
   right: 0;
@@ -55,7 +57,7 @@ const Header = styled.div`
 `
 
 const Footer = styled.div`
-  position: fixed;
+  position: sticky;
   bottom: 0;
   left: 0;
   right: 0;
@@ -76,7 +78,7 @@ const Footer = styled.div`
 `
 
 const Content = styled.div`
-  padding: ${HEADER_HEIGHT + 8}px 0 ${FOOTER_HEIGHT + 8}px;
+  padding: 8px 0;
   background: ${colors.bg};
 `
 
@@ -128,14 +130,19 @@ interface ChildPageProps {
 function ChildPage({ onToggleToParent }: ChildPageProps) {
   const isEmbedded = useMemo(isRunningInIframe, [])
   const [isLong, setIsLong] = useState(true)
-  const { onFocus, onBlur } = useKeepParentScrollPosition()
+  const { onFocus, onBlur } = useKeepParentScrollPosition(isEmbedded)
+  const {
+    scrollContainerRef,
+    shouldConstrain,
+    onPointerDown,
+    onBlur: onKeyboardBlur,
+  } = useKeyboardSafeViewport(isEmbedded)
   useIsKeyboardOpen()
-  useCollectAddressBarInnerHeights()
 
   const items = isLong ? LONG_ITEMS : SHORT_ITEMS
 
   return (
-    <Root>
+    <Root ref={scrollContainerRef} $constrained={shouldConstrain}>
       {isEmbedded ? <ChildPageIframeGlobalStyle /> : <ChildPageGlobalStyle />}
       <ViewportDebugPanel />
 
@@ -161,7 +168,7 @@ function ChildPage({ onToggleToParent }: ChildPageProps) {
                 연락처를 남겨주세요
                 <input
                   placeholder="이메일 또는 전화번호"
-                  onFocus={() => onFocus(false)}
+                  onFocus={onFocus}
                   onBlur={onBlur}
                 />
               </label>
@@ -177,8 +184,12 @@ function ChildPage({ onToggleToParent }: ChildPageProps) {
       <Footer>
         <input
           placeholder="메시지를 입력하세요"
-          onFocus={() => onFocus(!isEmbedded)}
-          onBlur={onBlur}
+          onPointerDown={onPointerDown}
+          onFocus={onFocus}
+          onBlur={() => {
+            onBlur()
+            onKeyboardBlur()
+          }}
         />
       </Footer>
     </Root>

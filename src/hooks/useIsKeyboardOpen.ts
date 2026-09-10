@@ -11,7 +11,6 @@ function getViewportHeight() {
 
 export function useIsKeyboardOpen() {
   const setIsKeyboardOpen = useKeyboardStore((state) => state.setIsKeyboardOpen)
-  const setKeyboardHeight = useKeyboardStore((state) => state.setKeyboardHeight)
   const previousHeight = useRef(getViewportHeight())
 
   useEffect(() => {
@@ -22,13 +21,7 @@ export function useIsKeyboardOpen() {
       const currentHeight = getViewportHeight()
 
       if (Math.abs(currentHeight - previousHeight.current) > KEYBOARD_ACTIVE_THRESHOLD) {
-        const isOpen = currentHeight < previousHeight.current
-        setIsKeyboardOpen(isOpen)
-
-        // 닫힐 때는 갱신하지 않아 마지막 키보드 높이가 그대로 유지된다.
-        if (isOpen) {
-          setKeyboardHeight(previousHeight.current - currentHeight)
-        }
+        setIsKeyboardOpen(currentHeight < previousHeight.current)
       }
 
       previousHeight.current = currentHeight
@@ -36,5 +29,5 @@ export function useIsKeyboardOpen() {
 
     vv.addEventListener('resize', handleResize)
     return () => vv.removeEventListener('resize', handleResize)
-  }, [setIsKeyboardOpen, setKeyboardHeight])
+  }, [setIsKeyboardOpen])
 }

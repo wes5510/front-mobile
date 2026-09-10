@@ -7,8 +7,10 @@ export const ParentPageGlobalStyle = createGlobalStyle`
 `
 
 // ChildPage가 iframe 없이 일반 화면으로 열렸을 때 문서(html, body)에 적용할 스타일.
+// html의 높이는 (GlobalStyle이 아니라) ChildPage에서 JS로 직접 지정한다.
 export const ChildPageGlobalStyle = createGlobalStyle`
-  html, body {
+  body {
+    height: 100%;
   }
 `
 
