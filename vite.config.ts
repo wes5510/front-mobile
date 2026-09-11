@@ -5,6 +5,8 @@ import { defineConfig } from 'vite'
 
 // https://vite.dev/config/
 export default defineConfig({
+  // 빌드 결과물이 CDN의 임의 하위 경로에 올라가므로 자산 경로를 상대 경로로 emit한다.
+  base: './',
   server: {
     host: true,
     port: 5174,
