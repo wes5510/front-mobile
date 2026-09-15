@@ -39,6 +39,11 @@ const Root = styled.div<{ $constrained: boolean }>`
   background: ${colors.bg};
   // html height가 줄어든 동안에는 문서 대신 Root가 스크롤을 담당한다.
   overflow-y: ${({ $constrained }) => ($constrained ? 'auto' : 'visible')};
+  // 스크롤러가 된 동안 끝까지 당기면 제스처가 문서로 넘어가 화면이 밀린다.
+  // contain이 그 체이닝만 끊고 요소 안의 스크롤은 그대로 둔다.
+  // 축을 y로 좁힌 이유 — 줄임 표기는 x축에도 걸려서, 나중에 가로 스크롤 요소가
+  // 생기면 그 요소의 체이닝까지 같이 막는다.
+  ${({ $constrained }) => ($constrained ? 'overscroll-behavior-y: contain;' : '')}
 `
 
 const Header = styled.div`
