@@ -33,6 +33,9 @@ const SHORT_ITEMS: ChatItem[] = [
 
 const HEADER_HEIGHT = 56
 const FOOTER_HEIGHT = 56
+// Header/Footer 는 content-box 라 아래 테두리가 높이 바깥에 더 붙는다.
+// 메시지 영역의 남는 자리를 계산할 때 이 굵기까지 빼야 한다.
+const BAR_BORDER_WIDTH = 1
 
 const Root = styled.div<{ $constrained: boolean }>`
   height: 100%;
@@ -57,7 +60,7 @@ const Header = styled.div`
   justify-content: space-between;
   padding: 0 16px;
   background: ${colors.bg};
-  border-bottom: 1px solid ${colors.border};
+  border-bottom: ${BAR_BORDER_WIDTH}px solid ${colors.border};
   z-index: 10;
 `
 
@@ -71,7 +74,7 @@ const Footer = styled.div`
   align-items: center;
   padding: 0 16px;
   background: ${colors.bg};
-  border-top: 1px solid ${colors.border};
+  border-top: ${BAR_BORDER_WIDTH}px solid ${colors.border};
   z-index: 10;
 
   input {
@@ -82,9 +85,37 @@ const Footer = styled.div`
   }
 `
 
-const Content = styled.div`
+const BARS_HEIGHT = HEADER_HEIGHT + FOOTER_HEIGHT + BAR_BORDER_WIDTH * 2
+
+const Content = styled.div<{ $constrained: boolean; $embedded: boolean }>`
   padding: 8px 0;
   background: ${colors.bg};
+  box-sizing: border-box;
+  // 메시지가 적어도 입력창이 화면 맨 아래에 오도록 남는 자리를 채운다.
+  // 잠긴 동안 더하는 1px 은 스크롤 여유다 — iOS Safari 는 넘칠 내용이 없는
+  // 스크롤러에서 overscroll-behavior 를 무시하므로(webkit.org/b/243452),
+  // 이 1px 이 있어야 Root 의 contain 이 실제로 동작한다.
+  //
+  // 기준을 둘로 나눈 이유: 평소에는 Root 가 확정 높이를 갖지 않아 100% 가 풀리지
+  // 않으므로 100dvh 로 재야 한다. 키보드가 뜨면 useKeyboardSafeViewport 가 html 에
+  // 픽셀 높이를 넣어 사슬이 풀리고, 그때는 100% 로 재야 넘침이 1px 로 남는다
+  // (100dvh 로 재면 줄어든 화면보다 커져 스크롤이 크게 밀린다).
+  //
+  // 평소에 html 을 건드리지 않는 것도 중요하다 — html 에 height 를 주면 Root 가
+  // 확정 높이를 갖게 되고, WebKit 은 sticky 를 가둘 때 높이가 고정된 조상 박스까지
+  // 보므로 문서를 스크롤할 때 Header 가 Root 박스째 화면 밖으로 나간다.
+  //
+  // embed 모드에는 걸지 않는다. 이 규칙이 노리는 둘(입력창을 화면 아래로,
+  // 잠긴 동안 1px 넘침)은 embed 에서 어느 쪽도 성립하지 않는데 — shouldConstrain 이
+  // isEmbedded 때문에 항상 거짓이라 1px 분기를 안 타고, 100dvh 는 iframe 자신의
+  // 높이라 메시지 영역이 iframe 을 꽉 채워 입력창만 iframe 바닥으로 내려간다 —
+  // 얻는 것 없이 embed 레이아웃만 바뀐다.
+  min-height: ${({ $constrained, $embedded }) =>
+    $embedded
+      ? 'auto'
+      : $constrained
+        ? `calc(100% - ${BARS_HEIGHT}px + 1px)`
+        : `calc(100dvh - ${BARS_HEIGHT}px)`};
 `
 
 const ToggleButton = styled.button`
@@ -166,7 +197,7 @@ function ChildPage({ onToggleToParent }: ChildPageProps) {
         </div>
       </Header>
 
-      <Content>
+      <Content $constrained={shouldConstrain} $embedded={isEmbedded}>
         {items.map((item, i) =>
           item.type === 'form' ? (
             <FormBlock key={i}>
